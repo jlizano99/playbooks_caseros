@@ -1,0 +1,29 @@
+---
+- hosts: nagios
+  remote_user: root
+  tasks:
+
+  - name: Instalar librerias necesarias para trabajar
+    yum:
+      name: git
+      state: present
+
+  - name: Clonando repo con los checks de nrpe
+    git:
+      repo: https://github.com/jlizano99/nagios.git
+      dest: /opt/nagios/
+      clone: yes      
+
+  - name: Copiar repositorios del nfs al /etc/yum.repos.d/
+    copy:
+      src: "{{ item }}"
+      dest: /root/scripts/
+      mode: 0777
+      remote_src: yes
+    with_items:
+       - '/opt/nagios/plugins/check_users'
+       - '/opt/nagios/plugins/check_load'
+       - '/opt/nagios/plugins/check_disk'
+       - '/opt/nagios/plugins/check_swap'
+       - '/opt/nagios/plugins/check_mem.pl'
+       - '/opt/nagios/plugins/check_procs'

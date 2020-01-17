@@ -1,0 +1,128 @@
+---
+- hosts: clientnagios
+  remote_user: root
+  tasks:
+
+  - name: Instalar librerias necesarias para trabajar
+    zypper:
+      name:
+        - git
+        - autoconf
+        - gcc
+        - glibc
+        - libmcrypt-devel
+        - make
+        - libopenssl-devel
+        - wget
+      state: present
+
+  - name: Descargar y descomprimir nagios nrpe
+    unarchive:
+      src: https://github.com/NagiosEnterprises/nrpe/archive/nrpe-3.2.1.tar.gz
+      dest: /opt
+      remote_src: yes
+
+  - name: Compilar e instalar nagios nrpe ./configure
+    shell: ./configure --enable-command-args
+    args:
+      chdir: /opt/nrpe-nrpe-3.2.1/
+
+  - name: Compilar e instalar nagios nrpe make all
+    shell: make all
+    args:
+      chdir: /opt/nrpe-nrpe-3.2.1/
+
+  - name: Compilar e instalar nagios nrpe make install-groups-users
+    shell: make install-groups-users
+    args:
+      chdir: /opt/nrpe-nrpe-3.2.1/
+
+  - name: Compilar e instalar nagios nrpe make install
+    shell: make install
+    args:
+      chdir: /opt/nrpe-nrpe-3.2.1/
+
+  - name: Compilar e instalar nagios nrpe make install-config
+    shell: make install-config
+    args:
+      chdir: /opt/nrpe-nrpe-3.2.1/
+
+  - name: Agregar lineas de nrpe en /etc/services 
+    lineinfile:
+      path: /etc/services
+      line: "{{ item }}"
+    with_items:
+       - '# Nagios services'
+       - 'nrpe    5666/tcp'
+
+  - name: Compilar e instalar nagios nrpe make install-init
+    shell: make install-init
+    args:
+      chdir: /opt/nrpe-nrpe-3.2.1/
+
+  - name: Habilitar servicio nrpe
+    systemd:
+      name: nrpe
+      enabled: yes
+      masked: no
+      
+  - name: Comentando las lineas de command en el nrpe.cfg
+    replace:
+      path: /usr/local/nagios/etc/nrpe.cfg
+      regexp: 'command'
+      replace: '#command'
+
+  - name: Modificando linea con el server de nagios al allowed_hosts
+    lineinfile:
+      path: /usr/local/nagios/etc/nrpe.cfg
+      regexp: '^allowed_hosts=127.0.0.1,::1'
+      insertafter: '^#allowed_hosts=127.0.0.1,::1'
+      line: allowed_hosts=127.0.0.1,172.16.109.29
+
+  - name: Modificando linea de dont blame del nrpe.cfg
+    lineinfile:
+      path: /usr/local/nagios/etc/nrpe.cfg
+      regexp: '^dont_blame_nrpe=0'
+      insertafter: '^#dont_blame_nrpe=0'
+      line: dont_blame_nrpe=1
+
+  - name: Agregar lineas de commands al nrpe.cfg
+    lineinfile:
+      path: /usr/local/nagios/etc/nrpe.cfg
+      line: "{{ item }}"
+    with_items:
+       - 'command[check_users]=/usr/local/nagios/lib/check_users -w 5 -c 10'
+       - 'command[check_load]=/usr/local/nagios/lib/check_load -w 15,10,5 -c 30,25,20'
+       - 'command[check_root]=/usr/local/nagios/lib/check_disk -w 20% -c 10% -p /dev/sda2'
+       - 'command[check_swap]=/usr/local/nagios/lib/check_swap -w 20% -c 10%'
+       - 'command[check_mem]=/usr/local/nagios/lib/check_mem.pl -u -w 75 -c 85'
+       - 'command[check_uptime]=/usr/local/nagios/lib/check_uptime'
+       - 'command[check_service_asterisk]=/usr/lib64/nagios/plugins/check_procs -c @0:0 -C asterisk'
+       - '#command[check_service]=/usr/local/nagios/lib/check_procs -c @1:1 -C nrpe'
+
+  - name: Clonando repo con los checks de nrpe
+    git:
+      repo: https://github.com/jlizano99/nagios.git
+      dest: /opt/nagios/
+      clone: yes      
+
+  - name: Copiar repositorios del nfs al /etc/yum.repos.d/
+    copy:
+      src: "{{ item }}"
+      dest: /usr/local/nagios/lib/
+      mode: 0777
+      remote_src: yes
+    with_items:
+       - '/opt/nagios/plugins/check_users'
+       - '/opt/nagios/plugins/check_load'
+       - '/opt/nagios/plugins/check_disk'
+       - '/opt/nagios/plugins/check_swap'
+       - '/opt/nagios/plugins/check_mem.pl'
+       - '/opt/nagios/plugins/check_procs'
+       - '/opt/nagios/plugins/check_nrpe'
+       - '/opt/nagios/plugins/check_uptime'
+
+  - name: Iniciar servicio nagios nrpe
+    systemd:
+      state: started
+      name: nrpe

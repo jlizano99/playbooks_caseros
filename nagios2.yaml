@@ -1,0 +1,245 @@
+---
+- hosts: nagios
+  remote_user: root
+  tasks:
+
+  - name: Instalar librerias necesarias para trabajar
+    yum:
+      name:
+        - git
+        - screen
+        - nano
+        - vim
+        - net-tools
+        - wget
+        - unzip
+        - zip
+        - make
+        - net-snmp
+        - curl
+        - nfs-utils
+        - xinetd
+        - bind-utils
+        - httpd
+        - php
+        - gcc
+        - python-passlib
+        - glibc
+        - openssl
+        - openssl-devel
+        - glibc-common
+        - perl
+        - gd
+        - gd-devel
+        - epel-release  
+      state: present
+
+  - name: Crear usuario nagios
+    user:
+      name: nagios
+      shell: /bin/bash
+
+  - name: Crear grupo nagcmd
+    group:
+      name: nagcmd
+      state: present
+
+  - name: Agregar usuario nagios al grupo nagcmd
+    user:
+      name: nagios
+      groups: nagcmd
+      append: yes
+
+  - name: Agregar usuario nagios al grupo apache
+    user:
+      name: nagios
+      groups: apache
+      append: yes
+
+  - name: Descargar y descomprimir nagios
+    unarchive:
+      src: https://assets.nagios.com/downloads/nagioscore/releases/nagios-4.4.5.tar.gz
+      dest: /opt
+      remote_src: yes
+
+  - name: Compilar e instalar nagios ./configure
+    shell: ./configure --with-nagios-group=nagios --with-command-group=nagcmd
+    args:
+      chdir: /opt/nagios-4.4.5/
+
+  - name: Compilar e instalar nagios make all
+    shell: make all
+    args:
+      chdir: /opt/nagios-4.4.5/
+
+  - name: Compilar e instalar nagios make install
+    shell: make install
+    args:
+      chdir: /opt/nagios-4.4.5/
+
+  - name: Compilar e instalar nagios make install-init
+    shell: make install-init
+    args:
+      chdir: /opt/nagios-4.4.5/
+
+  - name: Compilar e instalar nagios make install-config
+    shell: make install-config
+    args:
+      chdir: /opt/nagios-4.4.5/
+
+  - name: Compilar e instalar nagios make install-commandmode
+    shell: make install-commandmode
+    args:
+      chdir: /opt/nagios-4.4.5/
+
+  - name: Instalar web interface
+    shell: make install-webconf
+    args:
+      chdir: /opt/nagios-4.4.5/
+
+  - name: Instalar exfoliation theme
+    shell: make install-exfoliation
+    args:
+      chdir: /opt/nagios-4.4.5/
+
+  - name: Crear la cuenta de usuario para login al nagios web ui
+    htpasswd:
+      path: /usr/local/nagios/etc/htpasswd.users
+      name: nagiosadmin
+      password: nagiosadmin
+      crypt_scheme: md5_crypt
+
+  - name: Reiniciar servicio httpd
+    systemd:
+      state: restarted
+      name: httpd
+
+  - name: Habilitar servicio httpd
+    systemd:
+      name: httpd
+      enabled: yes
+      masked: no
+
+  - name: Descargar y descomprimir nagios plugins
+    unarchive:
+      src: https://nagios-plugins.org/download/nagios-plugins-2.3.1.tar.gz
+      dest: /opt
+      remote_src: yes
+
+  - name: Compilar e instalar nagios plugins 
+    shell: ./configure --with-nagios-user=nagios --with-nagios-group=nagios
+    args:
+      chdir: /opt/nagios-plugins-2.3.1/
+
+  - name: Compilar e instalar nagios plugins make
+    shell: make
+    args:
+      chdir: /opt/nagios-plugins-2.3.1/
+
+  - name: Compilar e instalar nagios plugins make install
+    shell: make install
+    args:
+      chdir: /opt/nagios-plugins-2.3.1/
+
+  - name: Descargar y descomprimir nagios nrpe
+    unarchive:
+      src: http://downloads.sourceforge.net/project/nagios/nrpe-2.x/nrpe-2.15/nrpe-2.15.tar.gz
+      dest: /opt
+      remote_src: yes
+
+  - name: Compilar e instalar nagios nrpe config
+    shell: ./configure --enable-command-args --with-nagios-user=nagios --with-nagios-group=nagios --with-ssl=/usr/bin/openssl --with-ssl-lib=/usr/lib/x86_64-linux-gnu
+    args:
+      chdir: /opt/nrpe-2.15/
+
+  - name: Compilar e instalar nagios nrpe make all
+    shell: make all
+    args:
+      chdir: /opt/nrpe-2.15/
+
+  - name: Compilar e instalar nagios nrpe make install
+    shell: make install
+    args:
+      chdir: /opt/nrpe-2.15/
+
+  - name: Compilar e instalar nagios nrpe make install-xinetd
+    shell: make install-xinetd
+    args:
+      chdir: /opt/nrpe-2.15/
+
+  - name: Compilar e instalar nagios nrpe make install-daemon-config
+    shell: make install-daemon-config
+    args:
+      chdir: /opt/nrpe-2.15/
+
+  - name: Modificar xinetd.d
+    lineinfile:
+      path: /etc/xinetd.d/nrpe
+      regexp: '^only_from = 127.0.0.1 '
+      insertafter: '^#only_from = 127.0.0.1 '
+      line: only_from = 127.0.0.1 192.168.55.20
+
+  - name: Agregar lineas de nrpe en /etc/services 
+    lineinfile:
+      path: /etc/services
+      line: "{{ item }}"
+    with_items:
+       - '# Nagios services'
+       - 'nrpe    5666/tcp'
+
+  - name: Iniciar servicio xinetd
+    systemd:
+      state: started
+      name: xinetd
+
+  - name: Habilitar servicio xinetd
+    systemd:
+      name: xinetd
+      enabled: yes
+      masked: no
+
+  - name: Iniciar servicio nrpe
+    systemd:
+      state: started
+      name: nrpe
+
+  - name: Habilitar servicio nrpe
+    systemd:
+      name: nrpe
+      enabled: yes
+      masked: no
+      
+  - name: Iniciar servicio nagios
+    systemd:
+      state: started
+      name: nagios
+
+  - name: Habilitar servicio nagios
+    systemd:
+      name: nagios
+      enabled: yes
+      masked: no
+
+  - name: Detener servicio firewalld
+    systemd:
+      state: stopped
+      name: firewalld.service
+
+  - name: Deshabilitar servicio firewalld
+    systemd:
+      name: firewalld.service
+      enabled: no
+      masked: no
+
+  - name: Disable SELinux
+    selinux:
+      state: disabled
+
+  - name: Reiniciar las máquinas para hacer todos los cambios sean efectivos
+    reboot:
+      reboot_timeout: 120
+
+  - name: Esperar 1 minuto mientras las máquinas inician
+    wait_for_connection:
+      delay: 30
+      timeout: 60

@@ -1,0 +1,218 @@
+---
+- hosts: pre_checks_ocp4
+  remote_user: root
+  tasks:
+
+  - name: Actualizar archivo /etc/hosts
+    lineinfile:
+      path: "/etc/hosts"
+      regexp: "{{ hostvars[item]['ansible_env'].SSH_CONNECTION.split(' ')[2] }}\t{{ hostvars[item]['ansible_hostname']}}\t{{ hostvars[item]['ansible_hostname']}}"
+      line: "{{ hostvars[item]['ansible_env'].SSH_CONNECTION.split(' ')[2] }}\t{{ hostvars[item]['ansible_hostname']}}\t{{ hostvars[item]['ansible_hostname']}}"
+      state: present
+      backup: yes
+    when: ansible_hostname != "{{ item }}" or ansible_hostname == "{{ item }}"
+    with_items: "{{groups['pre_checks_ocp4']}}"
+
+  - name: Instalar librerias necesarias para trabajar
+    yum:
+      name:
+        - git
+        - screen
+        - nano
+        - vim
+        - net-tools
+        - wget
+        - unzip
+        - curl
+        - nfs-utils
+        - bind-utils
+      state: present
+
+  - name: Detener servicio firewalld
+    systemd:
+      state: stopped
+      name: firewalld.service
+
+  - name: Deshabilitar servicio firewalld
+    systemd:
+      name: firewalld.service
+      enabled: no
+      masked: no
+
+  - name: Disable SELinux
+    selinux:
+      state: disabled
+
+  - name: Reiniciar las máquinas para hacer todos los cambios sean efectivos
+    reboot:
+      reboot_timeout: 120
+
+  - name: Esperar 1 minuto mientras las máquinas inician
+    wait_for_connection:
+      delay: 30
+      timeout: 60
+
+- hosts: dns.mycluster.example.com
+  remote_user: root
+  tasks:
+
+  - name: Instalar paquete para el DNS
+    yum:
+      name:
+        - dnsmasq
+      state: present
+
+  - name: Hacer backup del dnsmasq.conf
+    copy:
+      src: /etc/dnsmasq.conf
+      dest: /etc/dnsmasq.conf.bk
+      owner: root
+      group: root
+      mode: '0644'
+      remote_src: yes
+      backup: yes
+
+  - name: Eliminar archivo dnsmasq.conf
+    file:
+      state: absent
+      path: "/etc/dnsmasq.conf"
+
+  - name: Crear archivo dnsmasq vacio
+    file:
+      path: "/etc/dnsmasq.conf"
+      state: touch
+
+  - name: Modificar dnsmasq 
+    lineinfile:
+      path: /etc/dnsmasq.conf
+      line: "{{ item }}"
+    with_items:
+       - 'local=/mycluster.example.com/'
+       - 'address=/apps.mycluster.example.com/192.168.55.11'
+       - 'srv-host=_etcd-server-ssl._tcp.mycluster.example.com,master.mycluster.example.com,2380,0,10'
+       - 'no-hosts'    
+       - 'addn-hosts=/etc/dnsmasq.openshift.addnhosts'
+       - 'conf-dir=/etc/dnsmasq.d,.rpmnew,.rpmsave,.rpmorig'
+
+  - name: Crear archivo /etc/dnsmasq.openshift.addnhosts
+    copy:
+      content: ""
+      dest: /etc/dnsmasq.openshift.addnhosts
+      force: no
+      group: sys
+      owner: root
+      mode: 0555
+
+  - name: Modificar archivo /etc/dnsmasq.openshift.addnhosts
+    lineinfile:
+      path: /etc/dnsmasq.openshift.addnhosts
+      line: "{{ item }}"
+    with_items:
+       - '192.168.55.10 dns.mycluster.example.com  dns'
+       - '192.168.55.11  loadbalancer.mycluster.example.com  loadbalancer api api.mycluster.example.com  api-int api-int.mycluster.example.com'
+       - '192.168.55.12 bootstrap.mycluster.example.com  bootstrap'
+       - '192.168.55.13 master.mycluster.example.com  etcd-0.mycluster.example.com master  etcd-0'    
+       - '192.168.55.14 worker-1.mycluster.example.com worker-1'
+
+  - name: Iniciar servicio dnsmasq
+    systemd:
+      state: started
+      name: dnsmasq
+
+  - name: Habilitar servicio dnsmasq
+    systemd:
+      name: dnsmasq
+      enabled: yes
+      masked: no
+
+- hosts: loadbalancer.mycluster.example.com
+  remote_user: root
+  tasks:
+
+  - name: Instalar paquetes para el balanceador
+    yum:
+      name:
+        - haproxy
+      state: present
+
+  - name: Hacer backup del haproxy.cfg
+    copy:
+      src: /etc/haproxy/haproxy.cfg
+      dest: /etc/haproxy/haproxy.cfg.bk
+      owner: root
+      group: root
+      mode: '0644'
+      remote_src: yes
+      backup: yes
+
+  - name: Eliminar archivo haproxy.cfg
+    file:
+      state: absent
+      path: "/etc/haproxy/haproxy.cfg"
+
+  - name: Crear archivo haproxy.cfg
+    file:
+      path: "/etc/haproxy/haproxy.cfg"
+      state: touch
+
+  - name: Modificar dnsmasq 
+    lineinfile:
+      path: /etc/haproxy/haproxy.cfg
+      line: "{{ item }}"
+    with_items:
+       - 'global'
+       - '    log         127.0.0.1 local2 info'
+       - '    chroot      /var/lib/haproxy'
+       - '    pidfile     /var/run/haproxy.pid'    
+       - '    maxconn     4000'
+       - '    user        haproxy'
+       - '    group       haproxy'
+       - '    daemon'
+       - 'defaults'
+       - '    timeout connect         5s'    
+       - '    timeout client          30s'
+       - '    timeout server          30s'
+       - '    log                     global'
+       - 'frontend kubernetes_api'
+       - '    bind 0.0.0.0:6443'    
+       - '    default_backend kubernetes_api'
+       - 'backend kubernetes_api'
+       - '    balance roundrobin'    
+       - '    option ssl-hello-chk'
+       - '    server bootstrap bootstrap.mycluster.example.com:6443 check'    
+       - '    server master master.mycluster.example.com:6443 check'
+       - 'frontend machine_config'
+       - '    bind 0.0.0.0:22623'    
+       - '    default_backend machine_config'
+       - 'backend machine_config'
+       - '    balance roundrobin'    
+       - '    option ssl-hello-chk'
+       - '    server bootstrap bootstrap.mycluster.example.com:22623 check'    
+       - '    server master master.mycluster.example.com:22623 check'
+       - 'frontend router_https'
+       - '    bind 0.0.0.0:443'    
+       - '    default_backend router_https'
+       - 'backend router_https'
+       - '    balance roundrobin'    
+       - '    option ssl-hello-chk'
+       - '    server worker-1 worker-1.mycluster.example.com:443 check'
+       - 'frontend router_http'
+       - '    mode http'    
+       - '    option httplog'
+       - '    bind 0.0.0.0:80'    
+       - '    default_backend router_http'
+       - 'backend router_http'
+       - '    mode http'    
+       - '    balance roundrobin'
+       - '    server worker-1 worker-1.mycluster.example.com:80 check'
+
+  - name: Iniciar servicio haproxy
+    systemd:
+      state: started
+      name: haproxy
+
+  - name: Habilitar servicio haproxy
+    systemd:
+      name: haproxy
+      enabled: yes
+      masked: no

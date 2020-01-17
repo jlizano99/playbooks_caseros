@@ -1,0 +1,25 @@
+---
+- hosts: clientnagios
+  remote_user: root
+  tasks:
+
+  - name: Clonando repo con los checks de nrpe
+    git:
+      repo: https://github.com/jlizano99/nagios.git
+      dest: /opt/
+      clone: yes      
+
+  - name: Copiar repositorios del nfs al /etc/yum.repos.d/
+    copy:
+      src: "{{ item }}"
+      dest: /usr/local/nagios/libexec/
+      mode: 0777
+      remote_src: yes
+    with_items:
+       - '/opt/nagios/plugins/check_users'
+       - '/opt/nagios/plugins/check_load'
+       - '/opt/nagios/plugins/check_disk'
+       - '/opt/nagios/plugins/check_swap'
+       - '/opt/nagios/plugins/check_mem.pl'
+       - '/opt/nagios/plugins/check_procs'
+       - '/opt/nagios/plugins/check_nrpe'
