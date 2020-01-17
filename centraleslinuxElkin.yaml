@@ -2,20 +2,7 @@
 - hosts: clientnagios
   remote_user: root
   tasks:
-
-  - name: Instalar librerias necesarias para trabajar
-    zypper:
-      name:
-        - git
-        - autoconf
-        - gcc
-        - glibc
-        - libmcrypt-devel
-        - make
-        - libopenssl-devel
-        - wget
-      state: present
-
+  
   - name: Descargar y descomprimir nagios nrpe
     unarchive:
       src: https://github.com/NagiosEnterprises/nrpe/archive/nrpe-3.2.1.tar.gz
@@ -91,14 +78,14 @@
       path: /usr/local/nagios/etc/nrpe.cfg
       line: "{{ item }}"
     with_items:
-       - 'command[check_users]=/usr/local/nagios/lib/check_users -w 5 -c 10'
-       - 'command[check_load]=/usr/local/nagios/lib/check_load -w 15,10,5 -c 30,25,20'
-       - 'command[check_root]=/usr/local/nagios/lib/check_disk -w 20% -c 10% -p /dev/sda2'
-       - 'command[check_swap]=/usr/local/nagios/lib/check_swap -w 20% -c 10%'
-       - 'command[check_mem]=/usr/local/nagios/lib/check_mem.pl -u -w 75 -c 85'
-       - 'command[check_uptime]=/usr/local/nagios/lib/check_uptime'
-       - 'command[check_service_asterisk]=/usr/lib64/nagios/plugins/check_procs -c @0:0 -C asterisk'
-       - '#command[check_service]=/usr/local/nagios/lib/check_procs -c @1:1 -C nrpe'
+       - 'command[check_users]=/usr/local/nagios/libexec/check_users -w 5 -c 10'
+       - 'command[check_load]=/usr/local/nagios/libexec/check_load -w 15,10,5 -c 30,25,20'
+       - 'command[check_root]=/usr/local/nagios/libexec/check_disk -w 20% -c 10% -p /dev/sda2'
+       - 'command[check_swap]=/usr/local/nagios/libexec/check_swap -w 20% -c 10%'
+       - 'command[check_mem]=/usr/local/nagios/libexec/check_mem.pl -u -w 75 -c 85'
+       - 'command[check_uptime]=/usr/local/nagios/libexec/check_uptime'
+       - 'command[check_service_asterisk]=/usr/local/nagios/libexec/check_procs -c @0:0 -C asterisk'
+       - '#command[check_service]=/usr/local/nagios/libexec/check_procs -c @1:1 -C nrpe'  
 
   - name: Clonando repo con los checks de nrpe
     git:
@@ -106,21 +93,21 @@
       dest: /opt/nagios/
       clone: yes      
 
-  - name: Copiar repositorios del nfs al /etc/yum.repos.d/
+  - name: Copiar checks de nrpe a ruta de ejecucion
     copy:
       src: "{{ item }}"
-      dest: /usr/local/nagios/lib/
+      dest: /usr/local/nagios/libexec/
       mode: 0777
       remote_src: yes
     with_items:
-       - '/opt/nagios/plugins/check_users'
-       - '/opt/nagios/plugins/check_load'
-       - '/opt/nagios/plugins/check_disk'
-       - '/opt/nagios/plugins/check_swap'
-       - '/opt/nagios/plugins/check_mem.pl'
-       - '/opt/nagios/plugins/check_procs'
-       - '/opt/nagios/plugins/check_nrpe'
-       - '/opt/nagios/plugins/check_uptime'
+       - '/opt/nagios/check_users'
+       - '/opt/nagios/check_load'
+       - '/opt/nagios/check_disk'
+       - '/opt/nagios/check_swap'
+       - '/opt/nagios/check_mem.pl'
+       - '/opt/nagios/check_procs'
+       - '/opt/nagios/check_nrpe'
+       - '/opt/nagios/check_uptime'
 
   - name: Iniciar servicio nagios nrpe
     systemd:
