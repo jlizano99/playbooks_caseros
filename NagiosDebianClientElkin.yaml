@@ -1,8 +1,22 @@
 ---
-- hosts: mysql
+- hosts: clientdebiannagios
   remote_user: root
   tasks:
-  
+
+  - name: Instalar lista de paquetes
+    apt:
+      pkg:
+      - autoconf
+      - automake
+      - gccu
+      - libc6
+      - libmcrypt-dev
+      - make
+      - libssl-dev
+      - git
+      - wget
+      - vim
+
   - name: Descargar y descomprimir nagios nrpe
     unarchive:
       src: https://github.com/NagiosEnterprises/nrpe/archive/nrpe-3.2.1.tar.gz
@@ -80,11 +94,11 @@
     with_items:
        - 'command[check_users]=/usr/local/nagios/libexec/check_users -w 5 -c 10'
        - 'command[check_load]=/usr/local/nagios/libexec/check_load -w 15,10,5 -c 30,25,20'
-       - 'command[check_root]=/usr/local/nagios/libexec/check_disk -w 20% -c 10% -p /dev/sda3'
+       - 'command[check_root]=/usr/local/nagios/libexec/check_disk -w 20% -c 10% -p /dev/sda1'
        - 'command[check_swap]=/usr/local/nagios/libexec/check_swap -w 20% -c 10%'
        - 'command[check_mem]=/usr/local/nagios/libexec/check_mem.pl -u -w 75 -c 85'
        - 'command[check_uptime]=/usr/local/nagios/libexec/check_uptime'
-       - 'command[check_service_mysqld]=/usr/local/nagios/libexec/check_procs -c @0:0 -C mysqld'
+       - 'command[check_service_haproxy]=/usr/local/nagios/libexec/check_procs -c @0:0 -C haproxy'
        - '#command[check_service]=/usr/local/nagios/libexec/check_procs -c @1:1 -C nrpe'  
 
   - name: Clonando repo con los checks de nrpe

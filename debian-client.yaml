@@ -1,7 +1,21 @@
 ---
-- hosts: mysql
+- hosts: debian
   remote_user: root
   tasks:
+
+  - name: Instalar lista de paquetes
+    apt:
+      pkg:
+      - autoconf 
+      - automake
+      - gcc
+      - libc6
+      - libmcrypt-dev
+      - make
+      - libssl-dev
+      - wget
+      - git
+      - vim
   
   - name: Descargar y descomprimir nagios nrpe
     unarchive:
