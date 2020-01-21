@@ -98,7 +98,7 @@
        - 'command[check_swap]=/usr/local/nagios/libexec/check_swap -w 20% -c 10%'
        - 'command[check_mem]=/usr/local/nagios/libexec/check_mem.pl -u -w 75 -c 85'
        - 'command[check_uptime]=/usr/local/nagios/libexec/check_uptime'
-       - 'command[check_service_asterisk]=/usr/local/nagios/libexec/check_procs -c @0:0 -C asterisk'
+       - 'command[check_service_asterisk]=/usr/local/nagios/libexec/check_procs -c @0:0 -C haproxy'
        - '#command[check_service]=/usr/local/nagios/libexec/check_procs -c @1:1 -C nrpe'  
 
   - name: Clonando repo con los checks de nrpe
