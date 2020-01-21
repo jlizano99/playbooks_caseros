@@ -28,3 +28,6 @@
 172.16.109.102  ansible_user=root
 172.16.109.31   ansible_user=root
 172.16.109.32   ansible_user=root
+
+[freepbx]
+172.16.107.21	ansible_user=root
