@@ -1,0 +1,270 @@
+---
+- hosts: nagios-debian
+  remote_user: root
+  tasks:
+
+  - name: Instalar lista de paquetes
+    apt:
+      pkg:
+        - git
+        - python-apt
+        - python3-apt
+        - python3
+        - python3-dev
+        - virtualenv
+        - screen
+        - nano
+        - vim
+        - wget
+        - unzip
+        - zip
+        - curl
+        - python-passlib
+        - build-essential
+        - openssl
+        - make
+        - autoconf
+        - automake
+        - gcc
+        - libc6
+        - libmcrypt-dev
+        - libssl-dev
+        - net-tools
+        - apache2
+        - php
+        - libapache2-mod-php
+        - php-gd
+        - libgd-dev
+
+  - name: Descargar y descomprimir nagios
+    unarchive:
+      src: https://assets.nagios.com/downloads/nagioscore/releases/nagios-4.4.5.tar.gz
+      dest: /opt
+      remote_src: yes
+
+  - name: Compilar e instalar nagios ./configure
+    shell: ./configure --with-httpd-conf=/etc/apache2/sites-enabled
+    args:
+      chdir: /opt/nagios-4.4.5/
+
+  - name: Compilar e instalar nagios make all
+    shell: make all
+    args:
+      chdir: /opt/nagios-4.4.5/
+
+  - name: Compilar e instalar nagios make install-groups-users
+    shell: make install-groups-users
+    args:
+      chdir: /opt/nagios-4.4.5/
+
+  - name: Agregar usuario www-data al grupo nagios
+    user:
+      name: www-data
+      groups: nagios
+      append: yes
+
+  - name: Compilar e instalar nagios make install
+    shell: make install
+    args:
+      chdir: /opt/nagios-4.4.5/
+
+  - name: Compilar e instalar nagios make install-daemoninit
+    shell: make install-daemoninit
+    args:
+      chdir: /opt/nagios-4.4.5/
+
+  - name: Compilar e instalar nagios make install-commandmode
+    shell: make install-commandmode
+    args:
+      chdir: /opt/nagios-4.4.5/
+
+  - name: Compilar e instalar nagios make install-config
+    shell: make install-config
+    args:
+      chdir: /opt/nagios-4.4.5/
+
+  - name: Instalar web interface
+    shell: make install-webconf
+    args:
+      chdir: /opt/nagios-4.4.5/
+
+  - name: Enable Apache rewrite and CGI modules.
+    shell: a2enmod rewrite cgi
+    args:
+      chdir: /opt/nagios-4.4.5/
+
+  - name: Crear la cuenta de usuario para login al nagios web ui
+    htpasswd:
+      path: /usr/local/nagios/etc/htpasswd.users
+      name: nagiosadmin
+      password: nagiosadmin
+      crypt_scheme: md5_crypt
+
+  - name: Change file ownership, group and permissions
+    file:
+      path: /usr/local/nagios/etc/htpasswd.users
+      owner: 'www-data' 
+      group: 'www-data'
+      mode: '0640'
+
+  - name: Reiniciar servicio apache2
+    systemd:
+      state: restarted
+      name: apache2
+
+  - name: Habilitar servicio apache2
+    systemd:
+      name: apache2
+      enabled: yes
+      masked: no
+
+#  - name: Permitir acceso a puerto 80
+#    ufw:
+#      rule: allow
+#      port: '80' 
+
+  - name: Descargar y descomprimir nagios plugins
+    unarchive:
+      src: https://nagios-plugins.org/download/nagios-plugins-2.3.1.tar.gz
+      dest: /opt
+      remote_src: yes
+
+  - name: Compilar e instalar nagios plugins 
+    shell: ./configure --with-nagios-user=nagios --with-nagios-group=nagios
+    args:
+      chdir: /opt/nagios-plugins-2.3.1/
+
+  - name: Compilar e instalar nagios plugins make
+    shell: make
+    args:
+      chdir: /opt/nagios-plugins-2.3.1/
+
+  - name: Compilar e instalar nagios plugins make install
+    shell: make install
+    args:
+      chdir: /opt/nagios-plugins-2.3.1/
+
+  - name: Descargar y descomprimir nagios nrpe
+    unarchive:
+      src: https://github.com/NagiosEnterprises/nrpe/archive/nrpe-3.2.1.tar.gz
+      dest: /opt
+      remote_src: yes
+
+  - name: Compilar e instalar nagios nrpe ./configure
+    shell: ./configure --enable-command-args
+    args:
+      chdir: /opt/nrpe-nrpe-3.2.1/
+
+  - name: Compilar e instalar nagios nrpe make all
+    shell: make all
+    args:
+      chdir: /opt/nrpe-nrpe-3.2.1/
+
+  - name: Compilar e instalar nagios nrpe make install-groups-users
+    shell: make install-groups-users
+    args:
+      chdir: /opt/nrpe-nrpe-3.2.1/
+
+  - name: Compilar e instalar nagios nrpe make install
+    shell: make install
+    args:
+      chdir: /opt/nrpe-nrpe-3.2.1/
+
+  - name: Compilar e instalar nagios nrpe make install-config
+    shell: make install-config
+    args:
+      chdir: /opt/nrpe-nrpe-3.2.1/
+
+  - name: Agregar lineas de nrpe en /etc/services 
+    lineinfile:
+      path: /etc/services
+      line: "{{ item }}"
+    with_items:
+       - '# Nagios services'
+       - 'nrpe    5666/tcp'
+
+  - name: Compilar e instalar nagios nrpe make install-init
+    shell: make install-init
+    args:
+      chdir: /opt/nrpe-nrpe-3.2.1/
+
+  - name: Habilitar servicio nrpe
+    systemd:
+      name: nrpe
+      enabled: yes
+      masked: no
+      
+  - name: Comentando las lineas de command en el nrpe.cfg
+    replace:
+      path: /usr/local/nagios/etc/nrpe.cfg
+      regexp: 'command'
+      replace: '#command'
+
+  - name: Modificando linea con el server de nagios al allowed_hosts
+    lineinfile:
+      path: /usr/local/nagios/etc/nrpe.cfg
+      regexp: '^allowed_hosts=127.0.0.1,::1'
+      insertafter: '^#allowed_hosts=127.0.0.1,::1'
+      line: allowed_hosts=127.0.0.1,192.168.55.142
+
+  - name: Modificando linea de dont blame del nrpe.cfg
+    lineinfile:
+      path: /usr/local/nagios/etc/nrpe.cfg
+      regexp: '^dont_blame_nrpe=0'
+      insertafter: '^#dont_blame_nrpe=0'
+      line: dont_blame_nrpe=1
+
+  - name: Agregar lineas de commands al nrpe.cfg
+    lineinfile:
+      path: /usr/local/nagios/etc/nrpe.cfg
+      line: "{{ item }}"
+    with_items:
+       - 'command[check_users]=/usr/local/nagios/libexec/check_users -w 5 -c 10'
+       - 'command[check_load]=/usr/local/nagios/libexec/check_load -w 15,10,5 -c 30,25,20'
+       - 'command[check_root]=/usr/local/nagios/libexec/check_disk -w 20% -c 10% -p /dev/sda2'
+       - 'command[check_swap]=/usr/local/nagios/libexec/check_swap -w 20% -c 10%'
+       - 'command[check_mem]=/usr/local/nagios/libexec/check_mem.pl -u -w 75 -c 85'
+       - 'command[check_uptime]=/usr/local/nagios/libexec/check_uptime'
+       - 'command[check_service_asterisk]=/usr/local/nagios/libexec/check_procs -c @0:0 -C haproxy'
+       - '#command[check_service]=/usr/local/nagios/libexec/check_procs -c @1:1 -C nrpe'  
+
+  - name: Clonando repo con los checks de nrpe
+    git:
+      repo: https://github.com/jlizano99/nagios.git
+      dest: /opt/nagios/
+      clone: yes      
+
+  - name: Copiar checks de nrpe a ruta de ejecucion
+    copy:
+      src: "{{ item }}"
+      dest: /usr/local/nagios/libexec/
+      mode: 0777
+      remote_src: yes
+    with_items:
+       - '/opt/nagios/check_users'
+       - '/opt/nagios/check_load'
+       - '/opt/nagios/check_disk'
+       - '/opt/nagios/check_swap'
+       - '/opt/nagios/check_mem.pl'
+       - '/opt/nagios/check_procs'
+       - '/opt/nagios/check_nrpe'
+       - '/opt/nagios/check_uptime'
+
+  - name: Iniciar servicio nagios nrpe
+    systemd:
+      state: started
+      name: nrpe
+
+  - name: Iniciar servicio nagios
+    systemd:
+      state: started
+      name: nagios
+
+  - name: Reiniciar las máquinas para hacer todos los cambios sean efectivos
+    reboot:
+      reboot_timeout: 120
+
+  - name: Esperar 1 minuto mientras las máquinas inician
+    wait_for_connection:
+      delay: 30
+      timeout: 60

@@ -79,7 +79,7 @@
       path: /usr/local/nagios/etc/nrpe.cfg
       regexp: '^allowed_hosts=127.0.0.1,::1'
       insertafter: '^#allowed_hosts=127.0.0.1,::1'
-      line: allowed_hosts=127.0.0.1,192.168.55.20
+      line: allowed_hosts=127.0.0.1,192.168.55.142
 
   - name: Modificando linea de dont blame del nrpe.cfg
     lineinfile:
