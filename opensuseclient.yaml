@@ -3,18 +3,18 @@
   remote_user: root
   tasks:
 
-  - name: Instalar librerias necesarias para trabajar
-    zypper:
-      name:
-        - git
-        - autoconf
-        - gcc
-        - glibc
-        - libmcrypt-devel
-        - make
-        - libopenssl-devel
-        - wget
-      state: present
+#  - name: Instalar librerias necesarias para trabajar
+#    zypper:
+#      name:
+#        - git
+#        - autoconf
+#        - gcc
+#        - glibc
+#        - libmcrypt-devel
+#        - make
+#        - libopenssl-devel
+#        - wget
+#      state: present
 
   - name: Descargar y descomprimir nagios nrpe
     unarchive:
@@ -97,7 +97,7 @@
        - 'command[check_swap]=/usr/local/nagios/lib/check_swap -w 20% -c 10%'
        - 'command[check_mem]=/usr/local/nagios/lib/check_mem.pl -u -w 75 -c 85'
        - 'command[check_uptime]=/usr/local/nagios/lib/check_uptime'
-       - '#command[check_service]=/usr/local/nagios/lib/check_procs -c @1:1 -C nrpe'
+       - 'command[check_memory]=/usr/local/nagios/lib/check_mem -w 85 -c 95 -W 40 -C 70'
 
   - name: Clonando repo con los checks de nrpe
     git:
@@ -105,21 +105,22 @@
       dest: /opt/nagios/
       clone: yes      
 
-  - name: Copiar repositorios del nfs al /etc/yum.repos.d/
+  - name: Copiar plugins de nagios a ruta de ejecucion
     copy:
       src: "{{ item }}"
       dest: /usr/local/nagios/lib/
       mode: 0777
       remote_src: yes
     with_items:
-       - '/opt/nagios/plugins/check_users'
-       - '/opt/nagios/plugins/check_load'
-       - '/opt/nagios/plugins/check_disk'
-       - '/opt/nagios/plugins/check_swap'
-       - '/opt/nagios/plugins/check_mem.pl'
-       - '/opt/nagios/plugins/check_procs'
-       - '/opt/nagios/plugins/check_nrpe'
-       - '/opt/nagios/plugins/check_uptime'
+       - '/opt/nagios/check_users'
+       - '/opt/nagios/check_load'
+       - '/opt/nagios/check_disk'
+       - '/opt/nagios/check_swap'
+       - '/opt/nagios/check_mem.pl'
+       - '/opt/nagios/check_procs'
+       - '/opt/nagios/check_nrpe'
+       - '/opt/nagios/check_uptime'
+       - '/opt/nagios/check_mem'
 
   - name: Iniciar servicio nagios nrpe
     systemd:
