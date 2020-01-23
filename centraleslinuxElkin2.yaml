@@ -47,7 +47,13 @@
        - '/opt/nagios/check_uptime'
        - '/opt/nagios/check_mem'
 
+  - name: Detener  servicio nagios nrpe
+    systemd:
+      state: stopped
+      name: nrpe
+
   - name: Iniciar servicio nagios nrpe
     systemd:
-      state: restarted
+      state: started
       name: nrpe
+
