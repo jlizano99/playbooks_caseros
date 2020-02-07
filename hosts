@@ -1,0 +1,2 @@
+[nagios]
+192.168.122.75	ansible_connection=ssh ansible_user=root
