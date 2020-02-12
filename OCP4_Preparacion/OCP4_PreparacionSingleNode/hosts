@@ -1,0 +1,2 @@
+[pre_checks_ocp4]
+192.168.122.20	ansible_connection=ssh ansible_user=root

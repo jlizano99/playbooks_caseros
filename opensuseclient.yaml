@@ -91,13 +91,14 @@
       path: /usr/local/nagios/etc/nrpe.cfg
       line: "{{ item }}"
     with_items:
-       - 'command[check_users]=/usr/local/nagios/lib/check_users -w 5 -c 10'
-       - 'command[check_load]=/usr/local/nagios/lib/check_load -w 15,10,5 -c 30,25,20'
-       - 'command[check_root]=/usr/local/nagios/lib/check_disk -w 20% -c 10% -p /dev/sda2'
-       - 'command[check_swap]=/usr/local/nagios/lib/check_swap -w 20% -c 10%'
-       - 'command[check_mem]=/usr/local/nagios/lib/check_mem.pl -u -w 75 -c 85'
-       - 'command[check_uptime]=/usr/local/nagios/lib/check_uptime'
-       - 'command[check_memory]=/usr/local/nagios/lib/check_mem -w 85 -c 95 -W 40 -C 70'
+       - 'command[check_users]=/usr/local/nagios/libexec/check_users -w 5 -c 10'
+       - 'command[check_load]=/usr/local/nagios/libexec/check_load -w 15,10,5 -c 30,25,20'
+       - 'command[check_root]=/usr/local/nagios/libexec/check_disk -w 20% -c 10% -p /dev/sda2'
+       - 'command[check_swap]=/usr/local/nagios/libexec/check_swap -w 20% -c 10%'
+       - 'command[check_memory]=/usr/local/nagios/libexec/check_memls -u -w 75 -c 85'
+       - 'command[check_uptime]=/usr/local/nagios/libexec/check_uptime'
+       - 'command[check_service_asterisk]=/usr/local/nagios/libexec/check_procs -c @0:0 -C asterisk'
+       - '#command[check_service]=/usr/local/nagios/libexec/check_procs -c @1:1 -C nrpe'
 
   - name: Clonando repo con los checks de nrpe
     git:
