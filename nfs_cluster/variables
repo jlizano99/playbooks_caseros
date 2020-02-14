@@ -1,0 +1,4 @@
+DiscoNFS: /dev/vdb
+ParticionNFS: /data
+MontajeNFS: /mnt/data
+HostnameNFS1: 192.168.122.25

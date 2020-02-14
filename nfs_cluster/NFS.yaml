@@ -1,0 +1,103 @@
+---
+- hosts: nfs_servers
+  remote_user: root
+  vars_files:
+  - variables
+  tasks:
+
+  - name: Instalar librerias necesarias para trabajar
+    yum:
+      name:
+        - git
+        - screen
+        - nano
+        - vim
+        - net-tools
+        - wget
+        - unzip
+        - curl
+        - nfs-utils
+        - bind-utils
+      state: present
+
+  - name: Iniciar servicio nfs
+    systemd:
+      state: started
+      name: nfs-server
+
+  - name: Habilitar servicio nfs
+    systemd:
+      name: nfs-server
+      enabled: yes
+      masked: no
+
+  - name: Crear nueva particion {{DiscoNFS}}
+    filesystem:
+      fstype: ext4
+      dev: "{{DiscoNFS}}"
+
+  - name: Creacion de directorio para montar nueva particion
+    file:
+      path: "{{ParticionNFS}}"
+      state: directory
+
+  - name: Montar nueva particion en nuevo directorio
+    mount:
+      path: "{{ParticionNFS}}"
+      src: "{{DiscoNFS}}"
+      fstype: ext4
+      state: mounted
+
+  - name: "nfsd: Configure exports"
+    template:
+      src: "exports.j2"
+      dest: "/etc/exports"
+      owner: "root"
+      group: "root"
+      mode: "0644"
+
+  - name: Detener servicio nfs
+    systemd:
+      state: stopped
+      name: nfs-server
+
+  - name: Iniciar servicio nfs
+    systemd:
+      state: started
+      name: nfs-server
+
+  - name: Creacion de directorio para montar nueva particion
+    file:
+      path: "{{MontajeNFS}}"
+      state: directory
+
+  - name: Montaje de NFS
+    mount:
+      path: "{{MontajeNFS}}"
+      src: "{{HostnameNFS1}}:{{ParticionNFS}}"
+      fstype: nfs
+      state: mounted
+
+  - name: Detener servicio firewalld
+    systemd:
+      state: stopped
+      name: firewalld.service
+
+  - name: Deshabilitar servicio firewalld
+    systemd:
+      name: firewalld.service
+      enabled: no
+      masked: no
+
+  - name: Deshabilitar SELinux
+    selinux:
+      state: disabled
+
+  - name: Reiniciar las máquinas para hacer todos los cambios sean efectivos
+    reboot:
+      reboot_timeout: 120
+
+  - name: Esperar 1 minuto mientras las máquinas inician
+    wait_for_connection:
+      delay: 30
+      timeout: 60
